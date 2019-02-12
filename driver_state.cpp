@@ -20,7 +20,10 @@ void initialize_render(driver_state& state, int width, int height)
     state.image_height=height;
     state.image_color=0;
     state.image_depth=0;
-    std::cout<<"TODO: allocate and initialize state.image_color and state.image_depth."<<std::endl;
+    // std::cout<<"TODO: allocate and initialize state.image_color and state.image_depth."<<std::endl;
+    state.image_color = new pixel[width * height];
+    state.image_depth = new float[width * height];
+    std::fill(state.image_color, state.image_color + (width * height), make_pixel(0,0,0));
 }
 
 // This function will be called to render the data that has been stored in this class.
@@ -33,6 +36,14 @@ void initialize_render(driver_state& state, int width, int height)
 void render(driver_state& state, render_type type)
 {
     std::cout<<"TODO: implement rendering."<<std::endl;
+    for (int i = 0; i < state.num_vertices; i = i + 3) {
+		data_geometry* pass[3];
+		for (int j = 0; j < 3; j++) {
+			int ind = ((i + j) * state.floats_per_vertex);
+			pass[j]->data = state.vertex_data + ind;
+		}
+		rasterize_triangle(state, pass);
+	}
 }
 
 
@@ -40,7 +51,7 @@ void render(driver_state& state, render_type type)
 // It will be called recursively, once for each clipping face (face=0, 1, ..., 5) to
 // clip against each of the clipping faces in turn.  When face=6, clip_triangle should
 // simply pass the call on to rasterize_triangle.
-void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
+void clip_triangle(driver_state& state, data_geometry* in[3],int face)
 {
     if(face==6)
     {
@@ -54,8 +65,32 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 // Rasterize the triangle defined by the three vertices in the "in" array.  This
 // function is responsible for rasterization, interpolation of data to
 // fragments, calling the fragment shader, and z-buffering.
-void rasterize_triangle(driver_state& state, const data_geometry* in[3])
+void rasterize_triangle(driver_state& state, data_geometry* in[3])
 {
     std::cout<<"TODO: implement rasterization"<<std::endl;
+    for(int i = 0; i < 3; i++) {
+		data_vertex dv;
+		dv.data =  in[i]->data;
+		state.vertex_shader(dv, *in[i], state.uniform_data);
+		for (int j = 0; j < 3; j++) {
+			in[i]->gl_Position[j] = in[i]->gl_Position[j] / in[i]->gl_Position[3];
+		}
+		in[i]->gl_Position[0] = (in[i]->gl_Position[0] + 1) * (state.image_width / 2);
+		in[i]->gl_Position[1] = (in[i]->gl_Position[1] + 1) * (state.image_height / 2);	
+		int image_index = (in[i]->gl_Position[0] * state.image_width) + state.image_height;	
+		state.image_color[image_index].make_pixel(255, 255, 255);
+	}
+	float area = 0.5 * ((in[0]->data[0] * (in[1]->data[1] - in[2]->data[1])) + 
+						(in[1]->data[0] * (in[2]->data[1] - in[0]->data[1])) + 
+						(in[2]->data[0] * (in[0]->data[1] - in[1]->data[1])));
+	float Area = 0.5 * ((in[0]->data[0] * (in[1]->data[1] - in[2]->data[1])) + 
+						(in[1]->data[0] * (in[2]->data[1] - in[0]->data[1])) + 
+						(in[2]->data[0] * (in[0]->data[1] - in[1]->data[1])));
+	float Brea = 0.5 * ((in[0]->data[0] * (in[1]->data[1] - in[2]->data[1])) + 
+						(in[1]->data[0] * (in[2]->data[1] - in[0]->data[1])) + 
+						(in[2]->data[0] * (in[0]->data[1] - in[1]->data[1])));
+	float Grea = 0.5 * ((in[0]->data[0] * (in[1]->data[1] - in[2]->data[1])) + 
+						(in[1]->data[0] * (in[2]->data[1] - in[0]->data[1])) + 
+						(in[2]->data[0] * (in[0]->data[1] - in[1]->data[1])));
 }
 
