@@ -78,7 +78,6 @@ void rasterize_triangle(driver_state& state, data_geometry* in[3])
   		}
   		in[i]->gl_Position[0] = (in[i]->gl_Position[0] + 1) * (state.image_width / 2);
   		in[i]->gl_Position[1] = (in[i]->gl_Position[1] + 1) * (state.image_height / 2);	
-      std::cout << "(" << in[i]->gl_Position[0] << ", " << in[i]->gl_Position[1] << ")" << std::endl;
   		int image_index = in[i]->gl_Position[1] * state.image_width + in[i]->gl_Position[0];
   		state.image_color[image_index] = make_pixel(255, 255, 255);	
   	}
@@ -93,8 +92,6 @@ void rasterize_triangle(driver_state& state, data_geometry* in[3])
 
   for (int i = startX; i < endX; i++) {
       for (int j = startY; j < endY; j++) {
-  //for (int i = 0; i < state.image_width; i++) {
-    //for (int j = 0; j < state.image_height; j++) {
           	/*float Area = 0.5 * ((i * (in[1]->gl_Position[1] - in[2]->gl_Position[1])) + 
           						          (in[1]->gl_Position[0] * (in[2]->gl_Position[1] - j)) + 
           						          (in[2]->gl_Position[0] * (j - in[1]->gl_Position[1])));*/
