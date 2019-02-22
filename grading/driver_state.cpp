@@ -80,19 +80,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
     B[1] = (((in[1]->gl_Position[1] / in[1]->gl_Position[3]) + 1) * (state.image_height / 2));
     C[0] = (((in[2]->gl_Position[0] / in[2]->gl_Position[3]) + 1) * (state.image_width / 2));
     C[1] = (((in[2]->gl_Position[1] / in[2]->gl_Position[3]) + 1) * (state.image_height / 2));
-		for (int j = 0; j < 2; j++) {
-			std::cout << A[j] << std::endl;
-		}
-   for (int j = 0; j < 2; j++) {
-			std::cout << B[j] << std::endl;
-		}
-   for (int j = 0; j < 2; j++) {
-			std::cout << C[j] << std::endl;
-		}
-		std::cout << "----------------------" << std::endl;  
-	float area = 0.5 * ((A[0] * (B[1] - C[1])) + 
-			(B[0] * (C[1] - A[1])) + 
-			(C[0] * (A[1] - B[1])));                        
+	float area = 0.5 * ((A[0] * (B[1] - C[1])) + (B[0] * (C[1] - A[1])) + (C[0] * (A[1] - B[1])));                        
   int startX = std::min(std::min(A[0], B[0]), C[0]);
   int endX = std::max(std::max(A[0], B[0]), C[0]);
   int startY = std::min(std::min(A[1], B[1]), C[1]);
@@ -100,26 +88,28 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 
   for (int i = startX; i < endX; i++) {
       for (int j = startY; j < endY; j++) {
-          	/*float Area = 0.5 * ((i * (in[1]->gl_Position[1] - in[2]->gl_Position[1])) + 
-          						          (in[1]->gl_Position[0] * (in[2]->gl_Position[1] - j)) + 
-          						          (in[2]->gl_Position[0] * (j - in[1]->gl_Position[1])));*/
-          	float Brea = 0.5 * ((A[0] * (j - C[1])) + 
-          						          (i * (C[1] - A[1])) + 
-          						          (C[0] * (A[1] - j)));
-          	float Grea = 0.5 * ((A[0] * (B[1] - j)) + 
-          						          (B[0] * (j - A[1])) + 
-          						          (i * (A[1] - B[1])));
-           //double alpha = Area / area;
+          	float Brea = 0.5 * ((A[0] * (j - C[1])) + (i * (C[1] - A[1])) + (C[0] * (A[1] - j)));
+          	float Grea = 0.5 * ((A[0] * (B[1] - j)) + (B[0] * (j - A[1])) + (i * (A[1] - B[1])));
            double beta = Brea / area;
            double gamma = Grea / area;
            double alpha = (1 - beta) - gamma;
-           if (alpha >= 0 && beta >= 0 && gamma >= 0 && (alpha + beta + gamma) <= 1.001) {
-           int image_index = (j * state.image_width) + i;
-           state.image_color[image_index] = make_pixel(255, 255, 255);
-		/*float r = (alpha * in[0]->data[4]) + (beta * in[1]->data[4]) + (gamma * in[2]->data[4]);
-		float g = (alpha * in[0]->data[5]) + (beta * in[1]->data[5]) + (gamma * in[2]->data[5]);
-		float b = (alpha * in[0]->data[6]) + (beta * in[1]->data[6]) + (gamma * in[2]->data[6]);
-		state.image_color[image_index] = make_pixel(r, g, b);*/
+           if (alpha >= -0.001 && beta >= -0.001 && gamma >= -0.001 && (alpha + beta + gamma) <= 1.001) {
+               int image_index = (j * state.image_width) + i;
+              float iPol[state.floats_per_vertex];
+              for (int k = 0; k < state.floats_per_vertex; k++) {
+                 if (state.interp_rules[k] == interp_type::flat) {
+                     iPol[k] = in[0]->data[k];
+                 } else if (state.interp_rules[k] == interp_type::smooth) {
+                     //???
+                 } else if (state.interp_rules[k] == interp_type::noperspective) {
+                     iPol[k] = (alpha * in[0]->data[k]) + (beta * in[1]->data[k]) + (gamma * in[2]->data[k]);
+                 }
+             }
+             data_fragment df; 
+             df.data = iPol;
+             data_output dO;
+             state.fragment_shader(df, dO, state.uniform_data);
+             state.image_color[image_index] = make_pixel(255 * dO.output_color[0], 255 * dO.output_color[1], 255 * dO.output_color[2]);
            }
       }
   }
