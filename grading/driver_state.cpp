@@ -36,12 +36,12 @@ void initialize_render(driver_state& state, int width, int height)
 void render(driver_state& state, render_type type)
 {
     // std::cout<<"TODO: implement rendering."<<std::endl;
-    for (int i = 0; i < state.num_vertices; i = i + 3) {
+  for (int i = 0; i < state.num_vertices; i = i + 3) {
 		const data_geometry* pass[3];
 		for (int j = 0; j < 3; j++) {
 			int ind = ((i + j) * state.floats_per_vertex);
 			data_geometry* dg = new data_geometry();
-      			dg->data = state.vertex_data + ind;
+			dg->data = state.vertex_data + ind;
 			data_vertex dv;
 			dv.data = dg->data;
 			state.vertex_shader(dv, *dg, state.uniform_data);
@@ -73,47 +73,49 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
     // std::cout<<"TODO: implement rasterization"<<std::endl;
-    int inn[3][3] = {0};
-    for(int i = 0; i < 3; i++) {
-  		for (int j = 0; j < 3; j++) {
-			inn[i][j] = in[i]->gl_Position[j] / in[i]->gl_Position[3];
-  			//in[i]->gl_Position[j] = in[i]->gl_Position[j] / in[i]->gl_Position[3];
-  		}
-  		inn[i][0] = (inn[i][0] + 1) * (state.image_width / 2);
-  		inn[i][1] = (inn[i][1] + 1) * (state.image_height / 2);	
-  		int image_index = inn[i][1] * state.image_width + inn[i][0];
-  		state.image_color[image_index] = make_pixel(255, 255, 255);
-		for (int j = 0; j < state.floats_per_vertex; j++) {
-			std::cout << in[i]->data[j] << std::endl;
+    vec2 A, B, C;
+    A[0] = (((in[0]->gl_Position[0] / in[0]->gl_Position[3]) + 1) * (state.image_width / 2));
+    A[1] = (((in[0]->gl_Position[1] / in[0]->gl_Position[3]) + 1) * (state.image_height / 2));
+    B[0] = (((in[1]->gl_Position[0] / in[1]->gl_Position[3]) + 1) * (state.image_width / 2));
+    B[1] = (((in[1]->gl_Position[1] / in[1]->gl_Position[3]) + 1) * (state.image_height / 2));
+    C[0] = (((in[2]->gl_Position[0] / in[2]->gl_Position[3]) + 1) * (state.image_width / 2));
+    C[1] = (((in[2]->gl_Position[1] / in[2]->gl_Position[3]) + 1) * (state.image_height / 2));
+		for (int j = 0; j < 2; j++) {
+			std::cout << A[j] << std::endl;
 		}
-		std::cout << "----------------------" << std::endl;  	
-  	}
-	float area = 0.5 * ((inn[0][0] * (inn[1][1] - inn[2][1])) + 
-			(inn[1][0] * (inn[2][1] - inn[0][1])) + 
-			(inn[2][0] * (inn[0][1] - inn[1][1])));                        
-  int startX = std::min(std::min(inn[0][0], inn[1][0]), inn[2][0]);
-  int endX = std::max(std::max(inn[0][0], inn[1][0]), inn[2][0]);
-  int startY = std::min(std::min(inn[0][1], inn[1][1]), inn[2][1]);
-  int endY = std::max(std::max(inn[0][1], inn[1][1]), inn[2][1]);
+   for (int j = 0; j < 2; j++) {
+			std::cout << B[j] << std::endl;
+		}
+   for (int j = 0; j < 2; j++) {
+			std::cout << C[j] << std::endl;
+		}
+		std::cout << "----------------------" << std::endl;  
+	float area = 0.5 * ((A[0] * (B[1] - C[1])) + 
+			(B[0] * (C[1] - A[1])) + 
+			(C[0] * (A[1] - B[1])));                        
+  int startX = std::min(std::min(A[0], B[0]), C[0]);
+  int endX = std::max(std::max(A[0], B[0]), C[0]);
+  int startY = std::min(std::min(A[1], B[1]), C[1]);
+  int endY = std::max(std::max(A[1], B[1]), C[1]);
 
   for (int i = startX; i < endX; i++) {
       for (int j = startY; j < endY; j++) {
           	/*float Area = 0.5 * ((i * (in[1]->gl_Position[1] - in[2]->gl_Position[1])) + 
           						          (in[1]->gl_Position[0] * (in[2]->gl_Position[1] - j)) + 
           						          (in[2]->gl_Position[0] * (j - in[1]->gl_Position[1])));*/
-          	float Brea = 0.5 * ((inn[0][0] * (j - inn[2][1])) + 
-          						          (i * (inn[2][1] - inn[0][1])) + 
-          						          (inn[2][0] * (inn[0][1] - j)));
-          	float Grea = 0.5 * ((inn[0][0] * (inn[1][1] - j)) + 
-          						          (inn[1][0] * (j - inn[0][1])) + 
-          						          (i * (inn[0][1] - inn[1][1])));
+          	float Brea = 0.5 * ((A[0] * (j - C[1])) + 
+          						          (i * (C[1] - A[1])) + 
+          						          (C[0] * (A[1] - j)));
+          	float Grea = 0.5 * ((A[0] * (B[1] - j)) + 
+          						          (B[0] * (j - A[1])) + 
+          						          (i * (A[1] - B[1])));
            //double alpha = Area / area;
            double beta = Brea / area;
            double gamma = Grea / area;
            double alpha = (1 - beta) - gamma;
            if (alpha >= 0 && beta >= 0 && gamma >= 0 && (alpha + beta + gamma) <= 1.001) {
-               int image_index = (j * state.image_width) + i;
-		state.image_color[image_index] = make_pixel(in[1]->data[state.floats_per_vertex - 3], in[1]->data[state.floats_per_vertex - 2], in[1]->data[state.floats_per_vertex - 1]);
+           int image_index = (j * state.image_width) + i;
+           state.image_color[image_index] = make_pixel(255, 255, 255);
 		/*float r = (alpha * in[0]->data[4]) + (beta * in[1]->data[4]) + (gamma * in[2]->data[4]);
 		float g = (alpha * in[0]->data[5]) + (beta * in[1]->data[5]) + (gamma * in[2]->data[5]);
 		float b = (alpha * in[0]->data[6]) + (beta * in[1]->data[6]) + (gamma * in[2]->data[6]);
