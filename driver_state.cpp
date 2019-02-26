@@ -48,7 +48,8 @@ void render(driver_state& state, render_type type)
 			state.vertex_shader(dv, *dg, state.uniform_data);
 			pass[j] = dg;
 		}
-		rasterize_triangle(state, pass);
+		// rasterize_triangle(state, pass);
+		clip_triangle(state, pass, 0);
     for (int j = 0; j < 3; j++) 
         delete pass[j]; 
 	}
@@ -66,8 +67,81 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         rasterize_triangle(state, in);
         return;
     }
-    std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
-    clip_triangle(state,in,face+1);
+    // std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
+    //Depending on the face, set which axis and what value to check against
+    int cnt = 0, ind = 0, val = 1;
+    ivec3 inVec = {0, 0, 0};
+    if (face == 0) { 		// x = 1
+		ind = 0;
+		val = 1;
+	} else if (face == 1) { // x = -1
+		ind = 0;
+		val = -1;
+	} else if (face == 2) { // y = 1
+		ind = 1;
+		val = 1;
+	} else if (face == 3) { // y = -1
+		ind = 1;
+		val = -1;
+	} else if (face == 4) { // z = 1
+		ind = 2;
+		val = 1;
+	} else if (face == 5) { // z = -1
+		ind = 2;
+		val = -1;
+	}
+	//If vertex is inside, set it's inVec value to 1 and increment a counter
+	for (int i = 0; i < 3; i++) {
+		if (val < 0 && in[i]->gl_Position[ind] > val) {
+			cnt++;
+			inVec[i] = 1;
+		} else if (val > 0 && in[i]->gl_Position[ind] < val) {
+			cnt++;
+			inVec[i] = 1;
+		}
+	}
+	//Handle simple cases of all in or all out
+	if (cnt == 3) {
+		clip_triangle(state,in,face+1);
+	} else if (cnt == 0) {
+		return;
+	}
+	
+	//If one vertex is inside, set A to that vertex and if two vertices are inside, set A to the vertex that is outside
+	int chk = 0;
+	if (cnt == 1) {
+		chk = 1;
+	} else if (cnt == 2) {
+		chk = 0;
+	}
+	data_geometry* A = 0;
+	data_geometry* B = 0;
+	data_geometry* C = 0;
+	for (int i = 0; i < 2; i++) {
+		if (inVec[i] == chk) {
+			A = in[i];
+		} else {
+			if (B == 0) {
+				B = in[i];
+			} else {
+				C = in[i];
+			}
+		}
+	}
+	
+	//Create clip vertices
+	float wA = A->gl_Position[2], wB = B->gl_Position[2], wC = C->gl_Position[2];
+	float alphaB = ((val * wB) - B->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wB) - B->gl_Position[ind]));
+	float alphaC = ((val * wC) - C->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wC) - C->gl_Position[ind]));
+	data_geometry* AB = new data_geometry();
+	data_geometry* AC = new data_geometry();
+	AB->
+	if (cnt == 1) {	
+		
+		
+	} else if (cnt == 2) {
+		
+	}
 }
 
 // Rasterize the triangle defined by the three vertices in the "in" array.  This
