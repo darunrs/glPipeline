@@ -70,7 +70,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
     // std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
     
     //Depending on the face, set which axis and what value to check against
-    int cnt = 0, ind = 0, val = 1;
+    float cnt = 0, ind = 0, val = 1;
     ivec3 inVec = {0, 0, 0};
     if (face == 0) { 		// x = 1
 		ind = 0;
@@ -94,10 +94,10 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
  
 	//If vertex is inside, set it's inVec value to 1 and increment a counter (inVec stores which vertex is inside, and the counter tells how many vertices are inside)
 	for (int i = 0; i < 3; i++) {
-		if (val < 0 && in[i]->gl_Position[ind] >= val) {
+		if (val < 0 && in[i]->gl_Position[ind] >= (val * in[i]->gl_Position[3])) {
 			cnt++;
 			inVec[i] = 1;
-		} else if (val > 0 && in[i]->gl_Position[ind] <= val) {
+		} else if (val > 0 && in[i]->gl_Position[ind] <= (val * in[i]->gl_Position[3])) {
 			cnt++;
 			inVec[i] = 1;
 		}
@@ -121,6 +121,8 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 	const data_geometry* A = 0;
 	const data_geometry* B = 0;
 	const data_geometry* C = 0;
+
+
 	for (int i = 0; i < 3; i++) {
 		if (inVec[i] == chk) {
 			A = in[i];
@@ -132,11 +134,18 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 			}
 		}
 	}
- 
+
+//ta = sign * ind val
+//ua = ind val / w
+
+//tab = ta/ ta - tb
+//uab = (ua - 1)/(ua - ub)
+
 	//Calculate barycentric values to calculate ab and ac
 	float wA = A->gl_Position[3], wB = B->gl_Position[3], wC = C->gl_Position[3];
-	float alphaB = ((val * wB) - B->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wB) - B->gl_Position[ind]));
-	float alphaC = ((val * wC) - C->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wC) - C->gl_Position[ind]));
+  float aV = A->gl_Position[ind], bV = B->gl_Position[ind], cV = C->gl_Position[ind];
+	float alphaB = ((val * wB) - bV) / ((aV - (val * wA)) + ((val * wB) - bV));
+	float alphaC = ((val * wC) - cV) / ((aV - (val * wA)) + ((val * wC) - cV));
  
   //Create and populate new vertices
 	data_geometry* AB = new data_geometry();
@@ -147,20 +156,20 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
       AB->data[i] = (alphaB * A->data[i]) + ((1 - alphaB) * B->data[i]);
       AC->data[i] = (alphaC * A->data[i]) + ((1 - alphaC) * C->data[i]);
   }
-  data_vertex dv;
-	dv.data = AB->data;
-	state.vertex_shader(dv, *AB, state.uniform_data);
-  dv.data = AC->data;
-	state.vertex_shader(dv, *AC, state.uniform_data);
-  /*for (int i = 0; i < 4; i++) {
+//  data_vertex dv;
+//	dv.data = AB->data;
+//	state.vertex_shader(dv, *AB, state.uniform_data);
+//  dv.data = AC->data;
+//	state.vertex_shader(dv, *AC, state.uniform_data);
+  for (int i = 0; i < 4; i++) {
       AB->gl_Position[i] = (alphaB * A->gl_Position[i]) + ((1 - alphaB) * B->gl_Position[i]);
       AC->gl_Position[i] = (alphaC * A->gl_Position[i]) + ((1 - alphaC) * C->gl_Position[i]);
-  }*/
+  }
   
   
-  std::cout << "face: " << face << std::endl;
-  for (int i = 0; i < 4; i ++)
-      std::cout << i << " - " << A->gl_Position[i] << ", " << B->gl_Position[i] << ", " << C->gl_Position[i] << ", " << AB->gl_Position[i] << ", " << AC->gl_Position[i] << std::endl;
+  //std::cout << "face: " << face << std::endl;
+  //for (int i = 0; i < 4; i ++)
+      //std::cout << i << " - " << A->gl_Position[i] << ", " << B->gl_Position[i] << ", " << C->gl_Position[i] << ", " << AB->gl_Position[i] << ", " << AC->gl_Position[i] << std::endl;
   
   //Call clip triangle on new triangles
   const data_geometry* pass[3];
@@ -260,7 +269,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
                  if (state.interp_rules[k] == interp_type::flat) {
                      iPol[k] = in[0]->data[k];
                  } else if (state.interp_rules[k] == interp_type::smooth) {
-                     std::cout << "smooth!" << std::endl;
+                     //std::cout << "smooth!" << std::endl;
                  } else if (state.interp_rules[k] == interp_type::noperspective) {
                      iPol[k] = (alpha * in[0]->data[k]) + (beta * in[1]->data[k]) + (gamma * in[2]->data[k]);
                  }

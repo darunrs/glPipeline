@@ -48,7 +48,8 @@ void render(driver_state& state, render_type type)
 			state.vertex_shader(dv, *dg, state.uniform_data);
 			pass[j] = dg;
 		}
-		rasterize_triangle(state, pass);
+		// rasterize_triangle(state, pass);
+		clip_triangle(state, pass, 0);
     for (int j = 0; j < 3; j++) 
         delete pass[j]; 
 	}
@@ -66,8 +67,160 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         rasterize_triangle(state, in);
         return;
     }
-    std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
-    clip_triangle(state,in,face+1);
+    // std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
+    
+    //Depending on the face, set which axis and what value to check against
+    int cnt = 0, ind = 0, val = 1;
+    ivec3 inVec = {0, 0, 0};
+    if (face == 0) { 		// x = 1
+		ind = 0;
+		val = 1;
+	} else if (face == 1) { // x = -1
+		ind = 0;
+		val = -1;
+	} else if (face == 2) { // y = 1
+		ind = 1;
+		val = 1;
+	} else if (face == 3) { // y = -1
+		ind = 1;
+		val = -1;
+	} else if (face == 4) { // z = 1
+		ind = 2;
+		val = 1;
+	} else if (face == 5) { // z = -1
+		ind = 2;
+		val = -1;
+	}
+ 
+	//If vertex is inside, set it's inVec value to 1 and increment a counter (inVec stores which vertex is inside, and the counter tells how many vertices are inside)
+	for (int i = 0; i < 3; i++) {
+		if (val < 0 && in[i]->gl_Position[ind] >= val) {
+			cnt++;
+			inVec[i] = 1;
+		} else if (val > 0 && in[i]->gl_Position[ind] <= val) {
+			cnt++;
+			inVec[i] = 1;
+		}
+	}
+ 
+	//Handle simple cases of all in or all out
+	if (cnt == 3) {
+		clip_triangle(state,in,face+1); //If all vertices are inside, pass triangle unchanged to next face
+    return;
+	} else if (cnt == 0) {
+		return; //If all vertices are outside, don't rasterize it
+	}
+ 
+	//If one vertex is inside, set A to that vertex and if two vertices are inside, set A to the vertex that is outside
+	int chk = 0;
+	if (cnt == 1) {
+		chk = 1;
+	} else if (cnt == 2) {
+		chk = 0;
+	}
+	const data_geometry* A = 0;
+	const data_geometry* B = 0;
+	const data_geometry* C = 0;
+	for (int i = 0; i < 3; i++) {
+		if (inVec[i] == chk) {
+			A = in[i];
+		} else {
+			if (B == 0) { //Set B to the lower indexed vertex before setting C
+				B = in[i];
+			} else {
+				C = in[i];
+			}
+		}
+	}
+ 
+	//Calculate barycentric values to calculate ab and ac
+	float wA = A->gl_Position[3], wB = B->gl_Position[3], wC = C->gl_Position[3];
+	float alphaB = ((val * wB) - B->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wB) - B->gl_Position[ind]));
+	float alphaC = ((val * wC) - C->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wC) - C->gl_Position[ind]));
+ 
+  //Create and populate new vertices
+	data_geometry* AB = new data_geometry();
+	data_geometry* AC = new data_geometry();
+	AB->data = new float[state.floats_per_vertex];
+  AC->data = new float[state.floats_per_vertex];
+  for (int i = 0; i < state.floats_per_vertex; i++) {
+      AB->data[i] = (alphaB * A->data[i]) + ((1 - alphaB) * B->data[i]);
+      AC->data[i] = (alphaC * A->data[i]) + ((1 - alphaC) * C->data[i]);
+  }
+  data_vertex dv;
+	dv.data = AB->data;
+	state.vertex_shader(dv, *AB, state.uniform_data);
+  dv.data = AC->data;
+	state.vertex_shader(dv, *AC, state.uniform_data);
+  /*for (int i = 0; i < 4; i++) {
+      AB->gl_Position[i] = (alphaB * A->gl_Position[i]) + ((1 - alphaB) * B->gl_Position[i]);
+      AC->gl_Position[i] = (alphaC * A->gl_Position[i]) + ((1 - alphaC) * C->gl_Position[i]);
+  }*/
+  
+  
+  //std::cout << "face: " << face << std::endl;
+  //for (int i = 0; i < 4; i ++)
+      //std::cout << i << " - " << A->gl_Position[i] << ", " << B->gl_Position[i] << ", " << C->gl_Position[i] << ", " << AB->gl_Position[i] << ", " << AC->gl_Position[i] << std::endl;
+  
+  //Call clip triangle on new triangles
+  const data_geometry* pass[3];
+	if (cnt == 1) {	
+      if (inVec[0] == 1) {
+          pass[0] = in[0];
+          pass[1] = AB;
+          pass[2] = AC;
+          clip_triangle(state,pass,face+1);
+      } else if (inVec[1] == 1) {
+          pass[0] = AB;
+          pass[1] = in[1];
+          pass[2] = AC;
+          clip_triangle(state,pass,face+1);
+      } else if (inVec[2] == 1) {
+          pass[0] = AB; 
+          pass[1] = AC;
+          pass[2] = in[2];
+          clip_triangle(state,pass,face+1);
+      }
+      /*pass[0] = A;
+      pass[1] = AB;
+      pass[2] = AC;
+      clip_triangle(state,pass,face+1);*/
+      delete AB;
+      delete AC;
+      return;
+	} else if (cnt == 2) {
+		  if (inVec[0] == 0) {
+          pass[0] = AB;
+          pass[1] = in[1];
+          pass[2] = in[2];
+          clip_triangle(state,pass,face+1);
+          pass[0] = AC;
+          clip_triangle(state,pass,face+1);
+      } else if (inVec[1] == 0) {
+          pass[0] = in[0];
+          pass[1] = AB;
+          pass[2] = in[2];
+          clip_triangle(state,pass,face+1);
+          pass[1] = AC;
+          clip_triangle(state,pass,face+1);
+      } else if (inVec[2] == 0) {
+          pass[0] = in[0];
+          pass[1] = in[1];
+          pass[2] = AB;
+          clip_triangle(state,pass,face+1);
+          pass[2] = AC;
+          clip_triangle(state,pass,face+1);
+      }
+      /*pass[0] = B;
+      pass[1] = AB;
+      pass[2] = C;
+      clip_triangle(state,pass,face+1);
+      pass[1] = AC;
+      clip_triangle(state,pass,face+1);*/
+      delete AB;
+      delete AC;
+      return;
+	}
 }
 
 // Rasterize the triangle defined by the three vertices in the "in" array.  This
@@ -91,7 +244,6 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
   int endX = std::max(std::max(A[0], B[0]), C[0]);
   int startY = std::min(std::min(A[1], B[1]), C[1]);
   int endY = std::max(std::max(A[1], B[1]), C[1]);
-
   for (int i = startX; i <= endX; i++) {
       for (int j = startY; j <= endY; j++) {
             //float Area = 0.5 * ((i * (B[1] - C[1])) + (B[0] * (C[1] - j)) + (C[0] * (j - B[1])));
@@ -108,7 +260,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
                  if (state.interp_rules[k] == interp_type::flat) {
                      iPol[k] = in[0]->data[k];
                  } else if (state.interp_rules[k] == interp_type::smooth) {
-                     //???
+                     //std::cout << "smooth!" << std::endl;
                  } else if (state.interp_rules[k] == interp_type::noperspective) {
                      iPol[k] = (alpha * in[0]->data[k]) + (beta * in[1]->data[k]) + (gamma * in[2]->data[k]);
                  }
