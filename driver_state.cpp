@@ -94,10 +94,10 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
  
 	//If vertex is inside, set it's inVec value to 1 and increment a counter (inVec stores which vertex is inside, and the counter tells how many vertices are inside)
 	for (int i = 0; i < 3; i++) {
-		if (val < 0 && (in[i]->gl_Position[ind] / in[i]->gl_Position[3]) >= val) {
+		if (val < 0 && in[i]->gl_Position[ind] >= val) {
 			cnt++;
 			inVec[i] = 1;
-		} else if (val > 0 && (in[i]->gl_Position[ind] / in[i]->gl_Position[3]) <= val) {
+		} else if (val > 0 && in[i]->gl_Position[ind] <= val) {
 			cnt++;
 			inVec[i] = 1;
 		}
@@ -135,8 +135,8 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
  
 	//Calculate barycentric values to calculate ab and ac
 	float wA = A->gl_Position[3], wB = B->gl_Position[3], wC = C->gl_Position[3];
-	float alphaB = ((val * wB) - (B->gl_Position[ind] / wB)) / (((A->gl_Position[ind] / wA) - (val * wA)) + ((val * wB) - (B->gl_Position[ind] / wB)));
-	float alphaC = ((val * wC) - (C->gl_Position[ind] / wC)) / (((A->gl_Position[ind] / wA) - (val * wA)) + ((val * wC) - (C->gl_Position[ind] / wC)));
+	float alphaB = ((val * wB) - B->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wB) - B->gl_Position[ind]));
+	float alphaC = ((val * wC) - C->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wC) - C->gl_Position[ind]));
  
   //Create and populate new vertices
 	data_geometry* AB = new data_geometry();
@@ -147,10 +147,16 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
       AB->data[i] = (alphaB * A->data[i]) + ((1 - alphaB) * B->data[i]);
       AC->data[i] = (alphaC * A->data[i]) + ((1 - alphaC) * C->data[i]);
   }
-  for (int i = 0; i < 4; i++) {
+  data_vertex dv;
+	dv.data = AB->data;
+	state.vertex_shader(dv, *AB, state.uniform_data);
+  dv.data = AC->data;
+	state.vertex_shader(dv, *AC, state.uniform_data);
+  /*for (int i = 0; i < 4; i++) {
       AB->gl_Position[i] = (alphaB * A->gl_Position[i]) + ((1 - alphaB) * B->gl_Position[i]);
       AC->gl_Position[i] = (alphaC * A->gl_Position[i]) + ((1 - alphaC) * C->gl_Position[i]);
-  }
+  }*/
+  
   
   std::cout << "face: " << face << std::endl;
   for (int i = 0; i < 4; i ++)
@@ -254,7 +260,7 @@ void rasterize_triangle(driver_state& state, const data_geometry* in[3])
                  if (state.interp_rules[k] == interp_type::flat) {
                      iPol[k] = in[0]->data[k];
                  } else if (state.interp_rules[k] == interp_type::smooth) {
-                     //???
+                     std::cout << "smooth!" << std::endl;
                  } else if (state.interp_rules[k] == interp_type::noperspective) {
                      iPol[k] = (alpha * in[0]->data[k]) + (beta * in[1]->data[k]) + (gamma * in[2]->data[k]);
                  }
