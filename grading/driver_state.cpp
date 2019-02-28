@@ -70,7 +70,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
     // std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
     
     //Depending on the face, set which axis and what value to check against
-    int cnt = 0, ind = 0, val = 1;
+    float cnt = 0, ind = 0, val = 1;
     ivec3 inVec = {0, 0, 0};
     if (face == 0) { 		// x = 1
 		ind = 0;
@@ -94,10 +94,10 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
  
 	//If vertex is inside, set it's inVec value to 1 and increment a counter (inVec stores which vertex is inside, and the counter tells how many vertices are inside)
 	for (int i = 0; i < 3; i++) {
-		if (val < 0 && in[i]->gl_Position[ind] >= val) {
+		if (val < 0 && in[i]->gl_Position[ind] >= (val * in[i]->gl_Position[3])) {
 			cnt++;
 			inVec[i] = 1;
-		} else if (val > 0 && in[i]->gl_Position[ind] <= val) {
+		} else if (val > 0 && in[i]->gl_Position[ind] <= (val * in[i]->gl_Position[3])) {
 			cnt++;
 			inVec[i] = 1;
 		}
@@ -121,22 +121,22 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 	const data_geometry* A = 0;
 	const data_geometry* B = 0;
 	const data_geometry* C = 0;
+
+
 	for (int i = 0; i < 3; i++) {
 		if (inVec[i] == chk) {
 			A = in[i];
-		} else {
-			if (B == 0) { //Set B to the lower indexed vertex before setting C
-				B = in[i];
-			} else {
-				C = in[i];
-			}
+      B = in[(i + 1) % 3];
+      C = in[(i + 2) % 3];
+      break;
 		}
 	}
- 
+
 	//Calculate barycentric values to calculate ab and ac
 	float wA = A->gl_Position[3], wB = B->gl_Position[3], wC = C->gl_Position[3];
-	float alphaB = ((val * wB) - B->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wB) - B->gl_Position[ind]));
-	float alphaC = ((val * wC) - C->gl_Position[ind]) / ((A->gl_Position[ind] - (val * wA)) + ((val * wC) - C->gl_Position[ind]));
+  float aV = A->gl_Position[ind], bV = B->gl_Position[ind], cV = C->gl_Position[ind];
+	float alphaB = ((val * wB) - bV) / ((aV - (val * wA)) + ((val * wB) - bV));
+	float alphaC = ((val * wC) - cV) / ((aV - (val * wA)) + ((val * wC) - cV));
  
   //Create and populate new vertices
 	data_geometry* AB = new data_geometry();
@@ -147,15 +147,10 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
       AB->data[i] = (alphaB * A->data[i]) + ((1 - alphaB) * B->data[i]);
       AC->data[i] = (alphaC * A->data[i]) + ((1 - alphaC) * C->data[i]);
   }
-  data_vertex dv;
-	dv.data = AB->data;
-	state.vertex_shader(dv, *AB, state.uniform_data);
-  dv.data = AC->data;
-	state.vertex_shader(dv, *AC, state.uniform_data);
-  /*for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 4; i++) {
       AB->gl_Position[i] = (alphaB * A->gl_Position[i]) + ((1 - alphaB) * B->gl_Position[i]);
       AC->gl_Position[i] = (alphaC * A->gl_Position[i]) + ((1 - alphaC) * C->gl_Position[i]);
-  }*/
+  }
   
   
   //std::cout << "face: " << face << std::endl;
@@ -165,7 +160,7 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
   //Call clip triangle on new triangles
   const data_geometry* pass[3];
 	if (cnt == 1) {	
-      if (inVec[0] == 1) {
+      /*if (inVec[0] == 1) {
           pass[0] = in[0];
           pass[1] = AB;
           pass[2] = AC;
@@ -180,16 +175,16 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
           pass[1] = AC;
           pass[2] = in[2];
           clip_triangle(state,pass,face+1);
-      }
-      /*pass[0] = A;
-      pass[1] = AB;
-      pass[2] = AC;
-      clip_triangle(state,pass,face+1);*/
+      }*/
+   			pass[0] = A;
+        pass[1] = AB;
+        pass[2] = AC;
+      clip_triangle(state,pass,face+1);
       delete AB;
       delete AC;
       return;
 	} else if (cnt == 2) {
-		  if (inVec[0] == 0) {
+		  /*if (inVec[0] == 0) {
           pass[0] = AB;
           pass[1] = in[1];
           pass[2] = in[2];
@@ -210,13 +205,15 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
           clip_triangle(state,pass,face+1);
           pass[2] = AC;
           clip_triangle(state,pass,face+1);
-      }
-      /*pass[0] = B;
-      pass[1] = AB;
-      pass[2] = C;
-      clip_triangle(state,pass,face+1);
-      pass[1] = AC;
-      clip_triangle(state,pass,face+1);*/
+      }*/
+    			pass[0] = AB;
+          pass[1] = B;
+          pass[2] = C;
+          clip_triangle(state,pass,face+1);
+          pass[0] = C;
+          pass[1] = AC;
+          pass[2] = AB;
+          clip_triangle(state,pass,face+1);
       delete AB;
       delete AC;
       return;
