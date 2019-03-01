@@ -65,7 +65,26 @@ void render(driver_state& state, render_type type)
               delete pass[j]; 
       	}
     } else if (type == render_type::fan) {
-        /*for (int i = 0; i < numVal; i = i + 3) {
+        for (int i = 0; i < state.num_vertices; i++) {
+  		    const data_geometry* pass[3];
+      		for (int j = 0; j < 3; j++) {
+            int ind = ((i + j) * state.floats_per_vertex);
+            if (j == 0) {
+                ind = 0;
+            }
+      			data_geometry* dg = new data_geometry();
+      			dg->data = state.vertex_data + ind;
+      			data_vertex dv;
+      			dv.data = dg->data;
+      			state.vertex_shader(dv, *dg, state.uniform_data);
+      			pass[j] = dg;
+      		}
+      		clip_triangle(state, pass, 0);
+          for (int j = 0; j < 3; j++) 
+              delete pass[j]; 
+      	}
+    } else if (type == render_type::strip) {
+        for (int i = 0; i < (state.num_vertices - 2); i++) {
       		const data_geometry* pass[3];
       		for (int j = 0; j < 3; j++) {
             int ind = ((i + j) * state.floats_per_vertex);
@@ -79,9 +98,7 @@ void render(driver_state& state, render_type type)
       		clip_triangle(state, pass, 0);
           for (int j = 0; j < 3; j++) 
               delete pass[j]; 
-      	}*/
-    } else if (type == render_type::strip) {
-        
+      	}
     }
 }
 
