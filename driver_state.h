@@ -100,4 +100,6 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face=0);
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3]);
 
+float triArea(float ax, float ay, float bx, float by, float cx, float cy);
+
 #endif
