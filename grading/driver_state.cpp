@@ -20,11 +20,10 @@ void initialize_render(driver_state& state, int width, int height)
     state.image_height=height;
     state.image_color=0;
     state.image_depth=0;
-    //std::cout<<"TODO: allocate and initialize state.image_color and state.image_depth."<<std::endl;
     state.image_color = new pixel[width * height];
     state.image_depth = new float[width * height];
     std::fill(state.image_color, state.image_color + (width * height), make_pixel(0,0,0));
-    std::fill(state.image_depth, state.image_depth + (width * height), 1);
+    std::fill(state.image_depth, state.image_depth + (width * height), 2);
 }
 
 // This function will be called to render the data that has been stored in this class.
@@ -36,7 +35,6 @@ void initialize_render(driver_state& state, int width, int height)
 //   render_type::strip -    The vertices are to be interpreted as a triangle strip.
 void render(driver_state& state, render_type type)
 {
-    // std::cout<<"TODO: implement rendering."<<std::endl;
     if (type == render_type::triangle || type == render_type::indexed) {
         int numVal = 0;
         if (type == render_type::triangle) {
@@ -47,18 +45,18 @@ void render(driver_state& state, render_type type)
         for (int i = 0; i < numVal; i = i + 3) {
       		const data_geometry* pass[3];
       		for (int j = 0; j < 3; j++) {
-            int ind = 0;
-            if (type == render_type::triangle) {
-      			    ind = ((i + j) * state.floats_per_vertex);
-            } else if (type == render_type::indexed) {
-                ind = (state.index_data[(i + j)] * state.floats_per_vertex);
-            }
-      			data_geometry* dg = new data_geometry();
-      			dg->data = state.vertex_data + ind;
-      			data_vertex dv;
-      			dv.data = dg->data;
-      			state.vertex_shader(dv, *dg, state.uniform_data);
-      			pass[j] = dg;
+				int ind = 0;
+				if (type == render_type::triangle) {
+						ind = ((i + j) * state.floats_per_vertex);
+				} else if (type == render_type::indexed) {
+					ind = (state.index_data[(i + j)] * state.floats_per_vertex);
+				}
+					data_geometry* dg = new data_geometry();
+					dg->data = state.vertex_data + ind;
+					data_vertex dv;
+					dv.data = dg->data;
+					state.vertex_shader(dv, *dg, state.uniform_data);
+					pass[j] = dg;
       		}
       		clip_triangle(state, pass, 0);
           for (int j = 0; j < 3; j++) 
@@ -114,7 +112,6 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
         rasterize_triangle(state, in);
         return;
     }
-    // std::cout<<"TODO: implement clipping. (The current code passes the triangle through without clipping them.)"<<std::endl;
     
     //Depending on the face, set which axis and what value to check against
     float cnt = 0, ind = 0, val = 1;
@@ -241,43 +238,36 @@ void clip_triangle(driver_state& state, const data_geometry* in[3],int face)
 // fragments, calling the fragment shader, and z-buffering.
 void rasterize_triangle(driver_state& state, const data_geometry* in[3])
 {
-    // std::cout<<"TODO: implement rasterization"<<std::endl;
     vec3 A, B, C;
-    A[0] = (((in[0]->gl_Position[0] / in[0]->gl_Position[3]) + 1) * (state.image_width / 2));
-    A[1] = (((in[0]->gl_Position[1] / in[0]->gl_Position[3]) + 1) * (state.image_height / 2));
+    A[0] = (((in[0]->gl_Position[0] / in[0]->gl_Position[3]) + 1) * (state.image_width / 2)) - 0.5;
+    A[1] = (((in[0]->gl_Position[1] / in[0]->gl_Position[3]) + 1) * (state.image_height / 2)) - 0.5;
     A[2] =    in[0]->gl_Position[2] / in[0]->gl_Position[3];
-    B[0] = (((in[1]->gl_Position[0] / in[1]->gl_Position[3]) + 1) * (state.image_width / 2));
-    B[1] = (((in[1]->gl_Position[1] / in[1]->gl_Position[3]) + 1) * (state.image_height / 2));
+    B[0] = (((in[1]->gl_Position[0] / in[1]->gl_Position[3]) + 1) * (state.image_width / 2)) - 0.5;
+    B[1] = (((in[1]->gl_Position[1] / in[1]->gl_Position[3]) + 1) * (state.image_height / 2)) - 0.5;
     B[2] =    in[1]->gl_Position[2] / in[1]->gl_Position[3];
-    C[0] = (((in[2]->gl_Position[0] / in[2]->gl_Position[3]) + 1) * (state.image_width / 2));
-    C[1] = (((in[2]->gl_Position[1] / in[2]->gl_Position[3]) + 1) * (state.image_height / 2));
+    C[0] = (((in[2]->gl_Position[0] / in[2]->gl_Position[3]) + 1) * (state.image_width / 2)) - 0.5;
+    C[1] = (((in[2]->gl_Position[1] / in[2]->gl_Position[3]) + 1) * (state.image_height / 2)) - 0.5;
     C[2] =    in[2]->gl_Position[2] / in[2]->gl_Position[3];
-    float area = 0.5 * (((B[0] * C[1]) - (C[0] * B[1])) - ((A[0] * C[1]) - (C[0] * A[1])) + ((A[0] * B[1]) - (B[0] * A[1])));;
-	//float area = 0.5 * ((A[0] * (B[1] - C[1])) + (B[0] * (C[1] - A[1])) + (C[0] * (A[1] - B[1])));                        
+    float area = (((B[0] * C[1]) - (C[0] * B[1])) - ((A[0] * C[1]) - (C[0] * A[1])) + ((A[0] * B[1]) - (B[0] * A[1])));                    
   int startX = std::min(std::min(A[0], B[0]), C[0]);
   int endX = std::max(std::max(A[0], B[0]), C[0]);
   int startY = std::min(std::min(A[1], B[1]), C[1]);
   int endY = std::max(std::max(A[1], B[1]), C[1]);
-  for (int i = startX - 1; i <= endX; i++) {
-      for (int j = startY - 1; j <= endY; j++) {
-            //float Area = 0.5 * ((i * (B[1] - C[1])) + (B[0] * (C[1] - j)) + (C[0] * (j - B[1])));
-          	//float Brea = 0.5 * ((A[0] * (j - C[1])) + (i * (C[1] - A[1])) + (C[0] * (A[1] - j)));
-          	//float Grea = 0.5 * ((A[0] * (B[1] - j)) + (B[0] * (j - A[1])) + (i * (A[1] - B[1])));
-            float Area = 0.5 * (((B[0] * C[1]) - (C[0] * B[1])) - ((i * C[1]) - (C[0] * j)) + ((i * B[1]) - (B[0] * j)));
-          	float Brea = 0.5 * (((i * C[1]) - (C[0] * j)) - ((A[0] * C[1]) - (C[0] * A[1])) + ((A[0] * j) - (i * A[1])));
-          	float Grea = 0.5 * (((B[0] * j) - (i * B[1])) - ((A[0] * j) - (i * A[1])) + ((A[0] * B[1]) - (B[0] * A[1])));
-           float alpha = Area / area;
+  for (int i = startX; i <= endX; i++) {
+      for (int j = startY; j <= endY; j++) {
+          	float Brea = (((i * C[1]) - (C[0] * j)) - ((A[0] * C[1]) - (C[0] * A[1])) + ((A[0] * j) - (i * A[1])));
+          	float Grea = (((B[0] * j) - (i * B[1])) - ((A[0] * j) - (i * A[1])) + ((A[0] * B[1]) - (B[0] * A[1])));
            float beta = Brea / area;
            float gamma = Grea / area;
-           //float alpha = (1 - beta) - gamma;
-           if (alpha > -0.0001 && beta > -0.0001 && gamma > -0.0001 && (alpha + beta + gamma) < 1.0001) {
+           float alpha = (1.0 - beta) - gamma;
+           if (alpha >= 0 && beta >= 0 && gamma >= 0) {
                int image_index = (j * state.image_width) + i;
               float iPol[state.floats_per_vertex];
               for (int k = 0; k < state.floats_per_vertex; k++) {
                  if (state.interp_rules[k] == interp_type::flat) {
                      iPol[k] = in[0]->data[k];
                  } else if (state.interp_rules[k] == interp_type::smooth) {
-                     float aP = 1 / in[0]->gl_Position[3], bP = 1 / in[1]->gl_Position[3], gP = 1 / in[2]->gl_Position[3];
+                     float aP = 1.0 / in[0]->gl_Position[3], bP = 1.0 / in[1]->gl_Position[3], gP = 1.0 / in[2]->gl_Position[3];
                      aP = alpha * aP;
                      bP = beta * bP;
                      gP = gamma * gP;
